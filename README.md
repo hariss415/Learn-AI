@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # LEARN AI — Vercel + Render deployment edition
 
 Start with **DEPLOY_FIRST.md**. It contains the exact deployment order and environment variables.
@@ -60,3 +61,6 @@ This is a separate Node/Express export, not the Python/FastAPI project you previ
 ## Gemini edition
 
 Default Render Blueprint provider: Gemini. Configure GEMINI_API_KEY on the backend; generation uses gemini-2.5-flash and embeddings use gemini-embedding-2 with 768 dimensions. The OpenAI text adapter remains an explicit fallback. Embedding records include provider/model/dimension identity to prevent incompatible-vector comparisons. Source quotations and course schemas remain checked after either provider responds. See AI_API_KEY_SETUP.md for model/hosting limitations and privacy. The original-sites-source folder is the earlier published Site snapshot, not a Gemini-modified Site.
+=======
+# Learn-AI
+>>>>>>> 4156a4a416cbebf017a8690da6b64e83f726c71c
