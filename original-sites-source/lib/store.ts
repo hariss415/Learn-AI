@@ -1,0 +1,5 @@
+import { env } from 'cloudflare:workers';
+import { initialState, State } from './learning';
+export const database=()=>{const db=(env as any).DB;if(!db)throw new Error('Saved learning is temporarily unavailable. Please try again.');return db;};
+export async function load(userId:string){const row=await database().prepare('SELECT payload, revision FROM learner_states WHERE user_id = ?').bind(userId).first();return row?{state:JSON.parse(row.payload) as State,revision:row.revision as number}:{state:initialState(),revision:-1};}
+export async function save(userId:string,state:State,revision:number){const db=database();const now=new Date().toISOString();const result=revision<0?await db.prepare('INSERT OR IGNORE INTO learner_states (user_id,payload,revision,updated_at) VALUES (?,?,0,?)').bind(userId,JSON.stringify(state),now).run():await db.prepare('UPDATE learner_states SET payload = ?, revision = revision + 1, updated_at = ? WHERE user_id = ? AND revision = ?').bind(JSON.stringify(state),now,userId,revision).run();if(result.meta.changes!==1)throw new Error('Your learning changed in another tab. Refresh before continuing.');}

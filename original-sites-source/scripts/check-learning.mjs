@@ -1,0 +1,25 @@
+import ts from 'typescript';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {webcrypto} from 'node:crypto';
+const require=createRequire(import.meta.url);
+function load(path){const module={exports:{}};const source=ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;vm.runInNewContext(source,{require,module,exports:module.exports,crypto:webcrypto,Date,Set,console});return module.exports;}
+const {initialState,recordAnswer,chooseNext,courseSchema,publicState}=load('lib/learning.ts');
+const {prepared}=load('lib/prepared.ts');
+const s=initialState();s.course=prepared('phishing','Beginner','English',5);courseSchema.parse(s.course);for(const c of s.course.concepts)s.mastery[c]=35;s.activeId=chooseNext(s);assert.equal(s.activeId,'p1');
+recordAnswer(s,{activityId:'p1',optionId:'0',confidence:90,seconds:14});assert.equal(s.completed.length,1);assert.equal(s.history.length,1);assert.ok(s.mastery['Sender verification']<35);assert.ok(s.mastery['Sender verification']>=28);assert.equal(s.activeId,'p10');assert.equal(s.history[0].correct,false);
+assert.throws(()=>recordAnswer(s,{activityId:'p1',optionId:'1',confidence:90,seconds:10}));
+const m=s.mastery['Sender verification'];recordAnswer(s,{activityId:'p10',optionId:'1',confidence:90,seconds:20});assert.ok(s.mastery['Sender verification']>m);assert.ok(s.mastery['Sender verification']-m<20);assert.ok(s.review['Sender verification']);assert.equal(s.xp,30);
+assert.equal(publicState(s).course.activities.some(a=>'correctId' in a),false);
+assert.throws(()=>courseSchema.parse({...s.course,activities:[{...s.course.activities[0],correctId:'missing'},...s.course.activities.slice(1)]}));
+const advanced=initialState();advanced.course=prepared('negotiation','Advanced','English',3);for(const c of advanced.course.concepts)advanced.mastery[c]=65;advanced.activeId=chooseNext(advanced);assert.equal(advanced.course.activities.find(a=>a.id===advanced.activeId).difficulty,3);
+for(let i=0;i<3;i++){const a=advanced.course.activities.find(a=>a.id===advanced.activeId);recordAnswer(advanced,{activityId:a.id,optionId:a.correctId,confidence:85,seconds:45});}assert.equal(advanced.activeId,null);
+assert.equal(prepared('unknown subject','Beginner','English',5),null);assert.equal(prepared('phishing','Beginner','Urdu',5),null);
+assert.equal(prepared('Write a phishing scenario specific to an employee wellbeing policy','Beginner','English',5),null);
+assert.equal(prepared('Negotiation training for procurement during a supplier recall','Beginner','English',5),null);
+console.log('Learning checks passed: schema, server scoring, replay rejection, guided remediation, smoothing, advanced entry, session budget, and honest demo boundaries.');
+const fresh=initialState();fresh.course=prepared('phishing','Advanced','English',5);fresh.history=[{correct:false,concept:'Sender verification',confidence:10}];for(const c of fresh.course.concepts)fresh.mastery[c]=65;assert.equal(fresh.course.activities.find(a=>a.id===chooseNext(fresh)).difficulty,3);
+const delayed=initialState();delayed.course=prepared('phishing','Beginner','English',5);for(const c of delayed.course.concepts)delayed.mastery[c]=35;delayed.activeId=chooseNext(delayed);const dueActivity=delayed.course.activities.find(a=>a.id===delayed.activeId);delayed.review[dueActivity.concept]=new Date(Date.now()-86400000).toISOString();recordAnswer(delayed,{activityId:dueActivity.id,optionId:dueActivity.correctId,confidence:80,seconds:40});assert.equal(delayed.history[0].retentionProbe,true);const immediate=delayed.course.activities.find(a=>a.id===delayed.activeId);recordAnswer(delayed,{activityId:immediate.id,optionId:immediate.correctId,confidence:80,seconds:40});assert.equal(delayed.history[1].retentionProbe,false);
+console.log('Additional checks passed: fresh-course history isolation and delayed-only retention probes.');

@@ -1,0 +1,23 @@
+import ts from 'typescript';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {webcrypto} from 'node:crypto';
+const nativeRequire=createRequire(import.meta.url);
+let user=null,role='learner',writes=0;const env={ADMIN_EMAILS:'owner@example.com'};
+const database={prepare(sql){let args=[];return {bind(...v){args=v;return this;},async first(){if(sql.includes('SELECT role'))return {role};if(sql.includes('SELECT department'))return {department:'HR'};if(sql.includes('SELECT payload FROM content_library'))return args[1]==='HR'&&args[0]==='permitted'?{payload:'{"title":"HR course"}'}:null;return null;},async run(){if(!sql.startsWith('INSERT INTO members (email,user_id'))writes++;return {meta:{changes:1}};},async all(){return {results:[]};}};}};
+const cache={};function load(file){if(cache[file])return cache[file];const module={exports:{}};const req=name=>name==='cloudflare:workers'?{env}:name==='@/app/chatgpt-auth'?{getChatGPTUser:async()=>user}:name==='@/lib/store'||name==='./store'?{database:()=>database,load:async()=>({state:{course:null}})}:name==='@/lib/reminders'?{emailReady:()=>false}:name==='@/lib/generator'?{liveAvailable:()=>false}:name==='@/lib/admin'?load('lib/admin.ts'):name==='./learning'?load('lib/learning.ts'):nativeRequire(name);vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{require:req,module,exports:module.exports,Response,Request,URL,Date,console,crypto:webcrypto,Set});cache[file]=module.exports;return module.exports;}
+const api=load('app/api/admin/route.ts');const admin=load('lib/admin.ts');
+assert.equal((await api.GET()).status,401);user={userId:'learner-id',email:'learner@example.com',fullName:'Learner'};
+assert.equal((await api.GET()).status,403);
+const post=body=>new Request('https://learn.example/api/admin',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://learn.example'},body:JSON.stringify(body)});
+assert.equal((await api.POST(post({action:'member',member:{email:'attacker@example.com',role:'admin',department:'HR'}}))).status,403);assert.equal(writes,0);
+role='manager';assert.equal((await api.GET()).status,200);assert.equal((await api.POST(post({action:'settings',settings:{}}))).status,403);assert.equal(writes,0);
+user={userId:'owner-id',email:'OWNER@example.com',fullName:'Owner'};assert.equal(await admin.identity(user),'admin');
+assert.equal((await api.POST(new Request('https://learn.example/api/admin',{method:'POST',headers:{Origin:'https://attacker.example'},body:'{}'}))).status,403);
+assert.equal((await api.POST(post({action:'member',member:{email:'new@example.com',role:'manager',department:'HR'}}))).status,200);assert.equal(writes,1);
+assert.equal((await api.POST(post({action:'member',member:{email:'invalid',role:'owner',department:'HR'}}))).status,400);assert.equal(writes,1);
+assert.equal((await api.POST(post({action:'publish',department:'All'}))).status,400);
+assert.equal((await admin.libraryCourse('learner-id','permitted')).title,'HR course');await assert.rejects(()=>admin.libraryCourse('learner-id','other'),/not available/);
+console.log('Access checks passed: authentication, learner denial, manager read-only, owner allowlist, role validation, cross-origin rejection, no empty-course publishing, and department-scoped library access.');

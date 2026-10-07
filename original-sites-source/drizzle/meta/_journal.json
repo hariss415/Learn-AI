@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1791274305448,
+      "tag": "0000_fine_reavers",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791395642880,
+      "tag": "0001_high_mentallo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791395819315,
+      "tag": "0002_long_legion",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791401557200,
+      "tag": "0003_mysterious_firedrake",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791402118274,
+      "tag": "0004_cold_krista_starr",
+      "breakpoints": true
+    }
+  ]
+}

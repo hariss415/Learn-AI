@@ -1,0 +1,3 @@
+import {getCurrentUser} from '../auth';
+import {pool} from '../lib/database';
+export async function GET(_request:Request,context:{params:Promise<{id:string}>}){const user=await getCurrentUser();if(!user)return new Response('Sign in required',{status:401});const {id}=await context.params;const result=await pool.query('SELECT image_data FROM generated_assets WHERE id=$1 AND owner_id=$2',[id,user.userId]);if(!result.rows[0])return new Response('Not found',{status:404});return new Response(new Uint8Array(Buffer.from(result.rows[0].image_data,'base64')),{headers:{'Content-Type':'image/png','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});}

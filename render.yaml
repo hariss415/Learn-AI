@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: learn-ai-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npm run typecheck
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: AI_PROVIDER
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_EMBEDDING_MODEL
+        value: gemini-embedding-2
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: learn-ai-db
+          property: connectionString
+      - key: FRONTEND_URL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: BOOTSTRAP_LEARNER_EMAIL
+        sync: false
+      - key: BOOTSTRAP_LEARNER_PASSWORD
+        sync: false
+# Add GEMINI_API_KEY to the backend Environment settings after creating the service.
+databases:
+  - name: learn-ai-db
+    plan: free
+    databaseName: learn_ai
+    user: learn_ai

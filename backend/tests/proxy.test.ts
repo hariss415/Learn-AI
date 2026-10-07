@@ -1,0 +1,17 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {newDb} from 'pg-mem';
+process.env.FRONTEND_URL='http://localhost:3000';process.env.ADMIN_EMAILS='proxy-owner@example.com';process.env.NODE_ENV='production';
+await test('Next frontend request handler preserves backend authentication and learning state',async()=>{
+ const database=await import('../src/lib/database');const memory=newDb();const Pg=memory.adapters.createPg();const pool=new Pg.Pool();database.useDatabase(pool);await database.migrate();
+ const {createAccount}=await import('../src/auth');await createAccount('proxy-owner@example.com','Proxy Owner','proxy-password-123','admin','UBL');const {createApp}=await import('../src/app');const backend=createApp().listen(0,'127.0.0.1');await new Promise<void>(r=>backend.once('listening',r));const backendPort=(backend.address() as any).port;
+ process.env.BACKEND_URL=`http://127.0.0.1:${backendPort}`;
+ const proxy=await import('../../frontend/app/api/[...path]/route');const origin='http://localhost:3000';
+ async function request(path:string,cookie='',body?:any,requestOrigin=origin){const req=new Request(origin+'/api/'+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{}),Origin:requestOrigin},body:body?JSON.stringify(body):undefined});const response=await (body?proxy.POST:proxy.GET)(req,{params:Promise.resolve({path:path.split('/')})});return {response,status:response.status,data:await response.json() as any};}
+ try{const login=await request('auth/login','',{email:'proxy-owner@example.com',password:'proxy-password-123'});assert.equal(login.status,200);const header=login.response.headers.get('set-cookie')||'';assert.ok(header.includes('HttpOnly'));assert.ok(header.includes('SameSite=Lax'));assert.ok(header.includes('Secure'));const cookie=header.split(';')[0];
+ assert.equal((await request('admin',cookie)).data.role,'admin');assert.equal((await request('learning',cookie,{action:'generate',source:'topic',topic:'phishing'})).status,200);assert.equal((await request('learning',cookie)).data.state.course.mode,'Prepared demo');
+ assert.equal((await request('auth/login','',{email:'proxy-owner@example.com',password:'proxy-password-123'},'https://foreign.example')).status,403);
+ const account=await pool.query('SELECT id FROM app_users WHERE email=$1',['proxy-owner@example.com']);const assetId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';const bytes=Buffer.from([137,80,78,71,0,255]);await pool.query('INSERT INTO generated_assets (id,owner_id,object_key,activity_id,created_at,image_data) VALUES ($1,$2,$3,$4,$5,$6)',[assetId,account.rows[0].id,'fixture','fixture',new Date().toISOString(),bytes.toString('base64')]);const binary=await proxy.GET(new Request(origin+'/api/assets/'+assetId,{headers:{Cookie:cookie}}),{params:Promise.resolve({path:['assets',assetId]})});assert.equal(binary.status,200);assert.equal(binary.headers.get('content-type'),'image/png');assert.deepEqual(Buffer.from(await binary.arrayBuffer()),bytes);
+ assert.equal((await request('unlisted',cookie)).status,404);const out=await request('auth/logout',cookie,{});assert.equal(out.status,200);assert.ok(out.response.headers.get('set-cookie')?.includes('Max-Age=0'));assert.equal((await request('admin',cookie)).status,401);
+ }finally{backend.closeAllConnections();await new Promise<void>(r=>backend.close(()=>r()));await pool.end();}
+});

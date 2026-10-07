@@ -1,0 +1,10 @@
+import 'dotenv/config';
+import {createApp} from './app';
+import {migrate,pool} from './lib/database';
+import {seedAccounts} from './auth';
+if(!process.env.DATABASE_URL)throw new Error('Set DATABASE_URL to a PostgreSQL connection string.');
+if(!process.env.FRONTEND_URL)throw new Error('Set FRONTEND_URL to the Vercel origin or http://localhost:3000.');
+if(!process.env.BOOTSTRAP_ADMIN_EMAIL||!process.env.BOOTSTRAP_ADMIN_PASSWORD)throw new Error('Configure the bootstrap administrator email and password.');
+await migrate();await seedAccounts();await pool.query('DELETE FROM app_sessions WHERE expires_at<$1',[new Date().toISOString()]);
+const server=createApp().listen(Number(process.env.PORT)||10000,'0.0.0.0',()=>console.log('LEARN AI backend is ready.'));
+process.on('SIGTERM',()=>server.close(async()=>{await pool.end();process.exit(0);}));
