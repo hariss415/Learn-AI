@@ -15,8 +15,11 @@
       "DOM"
     ]
   },
-  "include": [
+   "include": [
     "src/**/*.ts",
     "tests/**/*.ts"
+  ],
+  "exclude": [
+    "tests/proxy.test.ts"
   ]
 }
